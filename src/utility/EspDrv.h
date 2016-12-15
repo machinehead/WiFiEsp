@@ -312,7 +312,7 @@ private:
 
 
 	// the ring buffer is used to search the tags in the stream
-	static RingBuffer ringBuf;
+	static RingBuff ringBuf;
 
 
 	//static int sendCmd(const char* cmd, int timeout=1000);

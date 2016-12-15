@@ -22,6 +22,9 @@ along with The Arduino WiFiEsp library.  If not, see
 #include "utility/EspDrv.h"
 #include "utility/debug.h"
 
+#if defined(__SAMD21G18A__)
+#define vsnprintf_P  vsnprintf
+#endif
 
 #define NUMESPTAGS 5
 
@@ -46,7 +49,7 @@ typedef enum
 
 Stream *EspDrv::espSerial;
 
-RingBuffer EspDrv::ringBuf(32);
+RingBuff EspDrv::ringBuf(32);
 
 // Array of data to cache the information related to the networks discovered
 char 	EspDrv::_networkSsid[][WL_SSID_MAX_LENGTH] = {{"1"},{"2"},{"3"},{"4"},{"5"}};
@@ -507,13 +510,56 @@ uint8_t EspDrv::getScanNetworks()
     return ssidListNum;
 }
 
+bool IPAddressFromString(const char *address, IPAddress& ipaddr)
+{
+    // TODO: add support for "a", "a.b", "a.b.c" formats
+
+    uint16_t acc = 0; // Accumulator
+    uint8_t dots = 0;
+
+    while (*address)
+    {
+        char c = *address++;
+        if (c >= '0' && c <= '9')
+        {
+            acc = acc * 10 + (c - '0');
+            if (acc > 255) {
+                // Value out of [0..255] range
+                return false;
+            }
+        }
+        else if (c == '.')
+        {
+            if (dots == 3) {
+                // Too much dots (there must be 3 dots)
+                return false;
+            }
+            ipaddr[dots++] = acc;
+            acc = 0;
+        }
+        else
+        {
+            // Invalid char
+            return false;
+        }
+    }
+
+    if (dots != 3) {
+        // Too few dots (there must be 3 dots)
+        return false;
+    }
+    ipaddr[3] = acc;
+    return true;
+}
+
 bool EspDrv::getNetmask(IPAddress& mask) {
 	LOGDEBUG(F("> getNetmask"));
 
 	char buf[20];
 	if (sendCmdGet(F("AT+CIPSTA?"), F("+CIPSTA:netmask:\""), F("\""), buf, sizeof(buf)))
 	{
-		mask.fromString (buf);
+
+		IPAddressFromString(buf, mask);
 		return true;
 	}
 
@@ -527,7 +573,7 @@ bool EspDrv::getGateway(IPAddress& gw)
 	char buf[20];
 	if (sendCmdGet(F("AT+CIPSTA?"), F("+CIPSTA:gateway:\""), F("\""), buf, sizeof(buf)))
 	{
-		gw.fromString (buf);
+		IPAddressFromString(buf, gw);
 		return true;
 	}
 
